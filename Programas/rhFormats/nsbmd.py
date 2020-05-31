@@ -217,7 +217,29 @@ class Texture(object):
             setattr(self, "texture", buffer)
             return buffer
 
+        elif ( self.parsed_parameters[2] == 6 ):
+            data.seek(self.data_offset, 0)
+
+            buffer = [[] for x in range(self.parsed_parameters[1])]
+
+            # Monta o bitmap indexado
+            for x in range(self.parsed_parameters[1]):
+                for y in range(self.parsed_parameters[0]):
+                    pixel = struct.unpack('B', data.read(1))[0]
+                    buffer[x].append(pixel)        
+            
+            # Converte para RGB
+            for x in range(self.parsed_parameters[1]):
+                for y in range(self.parsed_parameters[0]):
+                    data.seek(self.palette_offset + ( (buffer[x][y] & 0x07) << 1), 0)
+                    pixel = gba2rgb(data)
+                    buffer[x][y] = pixel + [ int(((buffer[x][y] & 0xf8) >> 3) * 255.0/31.0)]
+                        
+            setattr(self, "texture", buffer)
+            return buffer
+
         else:
+            print self.parsed_parameters[2]
             raise Exception("Unsupported texture format.")
         # Adicionar o tratamento dos demais formatos
 
@@ -562,7 +584,7 @@ class NsbmdFormat(object):
         palettes_offset = []
         for texture in textures:
             offset = struct.unpack('<L', self.data.read(4))[0] << 3
-            setattr(texture, "palette_offset", (self.chunks["TEX0-offset"] + self.chunks["TEX0"]["palette_data_offset"] + offset))
+            setattr(texture, "palette_offset", (self.chunks["TEX0-offset"] + self.chunks["TEX0"]["palette_data_offset"])) # + offset))
         for texture in textures:
             setattr(texture, "palette_name", self.data.read(16).replace("\x00", ""))
 
