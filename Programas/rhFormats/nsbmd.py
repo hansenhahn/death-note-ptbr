@@ -36,12 +36,12 @@ def signed_float(int, size, frac):
     
 from math import ceil
 def gba2rgb(fd):
-    try:
+    #try:
         rgb = struct.unpack('<H', fd.read(2))[0] & 0x7FFF
         rgb = map(lambda x,y: int(ceil(float((x >> y) & 0x1F)/31.0 * 0xFF)), [rgb]*3, [0,5,10])
         return rgb
-    except:
-        return (0,0,0)
+    # except:
+        # return [0,0,0]
 
 class ChunkError(exceptions.Exception):
     def __init__ (self, error):
@@ -89,7 +89,6 @@ class Texture(object):
         bitdepth = (0, 8, 2, 4, 8, 2, 8, 16)[self.parsed_parameters[2]]
 
         buffer = [[] for x in range(self.parsed_parameters[1])]
-
         if self.parsed_parameters[2] == 5:
             data.seek(self.data_offset, 0)
             pixmaps = []
@@ -196,9 +195,30 @@ class Texture(object):
 
             setattr(self, "texture", buffer)
             return buffer
+            
+        elif ( self.parsed_parameters[2] == 1 ):
+            data.seek(self.data_offset, 0)
+
+            buffer = [[] for x in range(self.parsed_parameters[1])]
+
+            # Monta o bitmap indexado
+            for x in range(self.parsed_parameters[1]):
+                for y in range(self.parsed_parameters[0]):
+                    pixel = struct.unpack('B', data.read(1))[0]
+                    buffer[x].append(pixel)        
+            
+            # Converte para RGB
+            for x in range(self.parsed_parameters[1]):
+                for y in range(self.parsed_parameters[0]):
+                    data.seek(self.palette_offset + ( (buffer[x][y] & 0x1f) << 1), 0)
+                    pixel = gba2rgb(data)
+                    buffer[x][y] = pixel + [ int(((buffer[x][y] & 0xe0) >> 5) * 255.0/7.0)]
+                        
+            setattr(self, "texture", buffer)
+            return buffer
 
         else:
-            pass
+            raise Exception("Unsupported texture format.")
         # Adicionar o tratamento dos demais formatos
 
     # def dump_texture(self, filename):
