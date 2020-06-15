@@ -161,27 +161,32 @@ class Texture(object):
                     buffer[4*x + 2] += pixmap[2]
                     buffer[4*x + 3] += pixmap[3]
 
-            setattr(self, "texture", buffer)
+            setattr(self, "texture_rgba", buffer)
             return buffer
 
         elif self.parsed_parameters[2] in (2, 3, 4):
-            data.seek(self.data_offset, 0)
-
             if bitdepth < 8:
                 sample = 8/bitdepth
                 mask = 2**bitdepth-1
                 shift = [x * bitdepth for x in range(sample)]
+                
+            data.seek(self.palette_offset)
+            palette = [gba2rgb(data) for _ in range(2**bitdepth)]
 
             buffer = [[] for x in range(self.parsed_parameters[1])]
+            raw_buffer = [[] for x in range(self.parsed_parameters[1])]
 
+            data.seek(self.data_offset, 0)
             # Monta o bitmap indexado
             for x in range(self.parsed_parameters[1]):
                 for y in range(self.parsed_parameters[0]/(8/bitdepth)):
                     pixel = struct.unpack('B', data.read(1))[0]
                     if bitdepth < 8:
                         buffer[x] += [mask & (pixel >> i) for i in shift]
+                        raw_buffer[x] += [mask & (pixel >> i) for i in shift]
                     else:
                         buffer[x].append(pixel)
+                        raw_buffer[x].append(pixel)
 
             # Converte para RGB
             for x in range(self.parsed_parameters[1]):
@@ -193,7 +198,9 @@ class Texture(object):
                     else:
                         buffer[x][y] = pixel + [0xFF]
 
-            setattr(self, "texture", buffer)
+            setattr(self, "palette", palette)
+            setattr(self, "texture_raw", raw_buffer)
+            setattr(self, "texture_rgba", buffer)
             return buffer
             
         elif ( self.parsed_parameters[2] == 1 ):
@@ -205,7 +212,7 @@ class Texture(object):
             for x in range(self.parsed_parameters[1]):
                 for y in range(self.parsed_parameters[0]):
                     pixel = struct.unpack('B', data.read(1))[0]
-                    buffer[x].append(pixel)        
+                    buffer[x].append(pixel)     
             
             # Converte para RGB
             for x in range(self.parsed_parameters[1]):
@@ -214,7 +221,7 @@ class Texture(object):
                     pixel = gba2rgb(data)
                     buffer[x][y] = pixel + [ int(((buffer[x][y] & 0xe0) >> 5) * 255.0/7.0)]
                         
-            setattr(self, "texture", buffer)
+            setattr(self, "texture_rgba", buffer)
             return buffer
 
         elif ( self.parsed_parameters[2] == 6 ):
@@ -235,7 +242,7 @@ class Texture(object):
                     pixel = gba2rgb(data)
                     buffer[x][y] = pixel + [ int(((buffer[x][y] & 0xf8) >> 3) * 255.0/31.0)]
                         
-            setattr(self, "texture", buffer)
+            setattr(self, "texture_rgba", buffer)
             return buffer
 
         else:
@@ -259,6 +266,33 @@ class Texture(object):
 
         # im.save(filename, "PNG")
         # return True
+    def write(self, data, texture_raw):
+        bitdepth = (0, 8, 2, 4, 8, 2, 8, 16)[self.parsed_parameters[2]]
+        
+        if self.parsed_parameters[2] in (2, 3, 4):
+            #if bitdepth < 8:
+            sample = 8/bitdepth
+            mask = 2**bitdepth-1
+            shift = [x * bitdepth for x in range(sample)]
+                
+            data.seek(self.palette_offset)
+            palette = [gba2rgb(data) for _ in range(2**bitdepth)]
+
+            buffer = [[] for x in range(self.parsed_parameters[1])]
+            raw_buffer = [[] for x in range(self.parsed_parameters[1])]
+
+            data.seek(self.data_offset, 0)
+            # Monta o bitmap indexado
+            for x in range(self.parsed_parameters[1]):
+                #print texture_raw[x]
+                row = zip(*[iter(texture_raw[x])]*sample)
+                row = map(lambda e: reduce(lambda x,y:(x << bitdepth) + y, reversed(e)), row)
+                for y in row:
+                    data.write( struct.pack("B", y) )
+                        
+        else:
+            raise Exception
+        self.read(data)
 
 class Command(object):
     # INCOMPLETO
@@ -436,6 +470,7 @@ class NsbmdFormat(object):
 
         self.read_chunks()
         self.read_models()
+        self.read_textures()
 
     def read_chunks(self):
         if not hasattr(self, "data"):
@@ -538,6 +573,10 @@ class NsbmdFormat(object):
             self.data.seek(link)
 
         return model
+        
+    def write_textures(self,t):
+        for i, texture in enumerate(self.textures):
+            texture.write(self.data, t[i])
         
     def read_textures(self):
         # Textures Info Section

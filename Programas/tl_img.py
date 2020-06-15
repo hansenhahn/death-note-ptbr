@@ -17,6 +17,8 @@ import glob
 __title__ = "DEATHNOTE Image Extractor"
 __version__ = "1.0"
 
+color_codecs = { 1: "A3I5", 2 : "4-Color", 3 : "16-Color", 4 : "256-Color", 5 : "4x4-Texel", 6 : "A5I3", 7 : "DirectColor" }
+
 def scandirs(path):
     files = []
     for currentFile in glob.glob( os.path.join(path, '*') ):
@@ -25,38 +27,77 @@ def scandirs(path):
         else:
             files.append(currentFile)
     return files
-
-def unpack( src, dst ):
-    files = filter(lambda x: x.__contains__('.nsbmd'), scandirs(src))
+    
+def pack3d( src, dst ):
+    files = filter(lambda x: x.__contains__('.bmp'), scandirs(src))
     
     for _, fname in enumerate(files):
-        print fname
-        
         try:
-            path = fname[len(src):]
-            fdirs = dst + path[:-len(os.path.basename(path))]
-            if not os.path.isdir(fdirs):
-                os.makedirs(fdirs)       
-        
-            with open(fname, "rb") as fd:
-                c = nsbmd.NsbmdFormat(fd)
-                tex = c.read_textures()
-                for t in tex:
-                    print t
-                    buffer = []
-                    for y, line in enumerate(t.texture):
-                        temp = []
-                        for x, pixel in enumerate(line):
-                            temp.append( (pixel[0],pixel[1],pixel[2]) ) 
-                        buffer.append(temp)             
-
-                    with open( fdirs + os.path.basename(path) + '.bmp', 'wb') as o:
-                        p = bmp.Writer(len(t.texture[0]), len(t.texture)  ,24)
-                        p.write(o, buffer)
-        except:
-            print "error!"
+            print fname 
+            basename = fname[len(src)+1:].replace(".bmp", "")
             
+            p = bmp.Reader(fname)
+            texture_raw = p.read()
+            
+            with open( os.path.join( dst, basename.replace(".bmp", "") ) , "r+b" ) as ofd:
+                c = nsbmd.NsbmdFormat(ofd)
+                c.write_textures([texture_raw,])
+            
+        except:
+           print "error!"
 
+    
+    
+
+def unpack3d( src, dst ):
+    files = filter(lambda x: x.__contains__('.nsbmd'), scandirs(src))
+    
+    with open( "do_not_delete_3d.log", "w" ) as log:
+        for _, fname in enumerate(files):
+            try:
+                print fname
+                path = fname[len(src):]
+                fdirs = dst + path[:-len(os.path.basename(path))]
+                if not os.path.isdir(fdirs):
+                    os.makedirs(fdirs)       
+            
+                with open(fname, "rb") as fd:
+                    c = nsbmd.NsbmdFormat(fd)
+                    tex = c.read_textures()
+                    with open( fdirs + os.path.basename(path) + '.bmp', 'wb') as o:
+                        # Codecs indexados padrao
+                        if tex[0].parsed_parameters[2] in (2,3,4):
+                            buffer = []
+                            for y, line in enumerate(tex[0].texture_raw):
+                                temp = []
+                                for x, pixel in enumerate(line):
+                                    temp.append( pixel ) 
+                                buffer.append(temp)   
+                                
+                            if tex[0].parsed_parameters[2] == 2:
+                                    p = bmp.Writer(len(tex[0].texture_raw[0]), len(tex[0].texture_raw), 2, palette = tex[0].palette)
+                                    p.write(o, buffer) 
+                            elif tex[0].parsed_parameters[2] == 3:
+                                    p = bmp.Writer(len(tex[0].texture_raw[0]), len(tex[0].texture_raw), 4, palette = tex[0].palette)
+                                    p.write(o, buffer)   
+                            elif tex[0].parsed_parameters[2] == 4:
+                                    p = bmp.Writer(len(tex[0].texture_raw[0]), len(tex[0].texture_raw), 8, palette = tex[0].palette)
+                                    p.write(o, buffer)                                           
+                        else:
+                            buffer = []
+                            for y, line in enumerate(tex[0].texture_rgba):
+                                temp = []
+                                for x, pixel in enumerate(line):
+                                    temp.append( (pixel[0],pixel[1],pixel[2]) ) 
+                                buffer.append(temp)                             
+                        
+                            p = bmp.Writer(len(tex[0].texture_rgba[0]), len(tex[0].texture_rgba)  ,24)
+                            p.write(o, buffer)
+                        log.write("%s > %s\n" % ( fdirs + os.path.basename(path) + '.bmp' , color_codecs[tex[0].parsed_parameters[2]] ))    
+                        
+            except:
+                print "error!"
+            
 if __name__ == "__main__":
 
     import argparse
@@ -68,11 +109,16 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument( '-s', dest = "src", type = str, nargs = "?", required = True )
+    #parser.add_argument( '-s1', dest = "src1", type = str, nargs = "?", required = False )
     parser.add_argument( '-d', dest = "dst", type = str, nargs = "?", required = True )
+    parser.add_argument( '-m', dest = "mode", type = str, nargs = "?", required = True )
     
     args = parser.parse_args()
     
-    print "Unpacking images"           
-    unpack( args.src , args.dst )
+    if ( args.mode == "u3d" ):
+        print "Unpacking images"           
+        unpack3d( args.src , args.dst )
+    elif ( args.mode == "p3d" ):
+        pack3d( args.src, args.dst )
 
     sys.exit(1)
