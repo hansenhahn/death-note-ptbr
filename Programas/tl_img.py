@@ -46,9 +46,6 @@ def pack3d( src, dst ):
         except:
            print "error!"
 
-    
-    
-
 def unpack3d( src, dst ):
     files = filter(lambda x: x.__contains__('.nsbmd'), scandirs(src))
     
