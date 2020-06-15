@@ -66,23 +66,16 @@ def unpack3d( src, dst ):
                     tex = c.read_textures()
                     with open( fdirs + os.path.basename(path) + '.bmp', 'wb') as o:
                         # Codecs indexados padrao
-                        if tex[0].parsed_parameters[2] in (2,3,4):
-                            buffer = []
-                            for y, line in enumerate(tex[0].texture_raw):
-                                temp = []
-                                for x, pixel in enumerate(line):
-                                    temp.append( pixel ) 
-                                buffer.append(temp)   
-                                
+                        if tex[0].parsed_parameters[2] in (2,3,4):                              
                             if tex[0].parsed_parameters[2] == 2:
                                     p = bmp.Writer(len(tex[0].texture_raw[0]), len(tex[0].texture_raw), 2, palette = tex[0].palette)
-                                    p.write(o, buffer) 
+                                    p.write(o, tex[0].texture_raw) 
                             elif tex[0].parsed_parameters[2] == 3:
                                     p = bmp.Writer(len(tex[0].texture_raw[0]), len(tex[0].texture_raw), 4, palette = tex[0].palette)
-                                    p.write(o, buffer)   
+                                    p.write(o, tex[0].texture_raw)   
                             elif tex[0].parsed_parameters[2] == 4:
                                     p = bmp.Writer(len(tex[0].texture_raw[0]), len(tex[0].texture_raw), 8, palette = tex[0].palette)
-                                    p.write(o, buffer)                                           
+                                    p.write(o, tex[0].texture_raw)                                           
                         else:
                             buffer = []
                             for y, line in enumerate(tex[0].texture_rgba):
