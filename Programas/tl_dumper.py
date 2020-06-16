@@ -18,6 +18,22 @@ BLOCK_TAG = r'^[BLK:(.+?) NU:(.+?) ARG0:(.+?) ARG1:(.+?)]$'
 TAG_IN_LINE = r'(<.+?>)'
 GET_TAG = r'^<(.+?)>$'
 
+# caracteres acentuados
+LATIN = { "`A": "\xa6", "'A": "\xa7", "^A": "\xa8", "~A": "\xa9",
+          "\"A": "\xaa", "'C": "\xab", "`E": "\xac", "'E": "\xad",
+          "^E": "\xae", "~E": "\xaf", "\"E": "\xb0", "`I": "\xb1",
+          "'I": "\xb2", "^I": "\xb3", "\"I": "\xb4", "`O": "\xb5",
+          "'O": "\xb6", "^O": "\xb7", "~O": "\xb8", "\"O": "\xb9",
+          "`U": "\xba", "'U": "\xbb", "~U": "\xbc", "\"U": "\xbd",
+          "~N": "\xbe", "\"Y": "\xbf", 
+          "`a": "\xc0", "'a": "\xc1", "^a": "\xc2", "~a": "\xc3",
+          "\"a": "\xc4", "'c": "\xc5", "`e": "\xc6", "'e": "\xc7",
+          "^e": "\xc8", "~e": "\xc9", "\"e": "\xca", "`i": "\xcb",
+          "'i": "\xcc", "^i": "\xcd", "\"i": "\xce", "`o": "\xcf",
+          "'o": "\xd0", "^o": "\xd1", "~o": "\xd2", "\"o": "\xd3",
+          "`u": "\xd4", "'u": "\xd5", "~u": "\xd6", "\"u": "\xd7",
+          "~n": "\xd8", "\"y": "\xd9" }
+
 def scandirs(path):
     files = []
     for currentFile in glob.glob( os.path.join(path, '*') ):
@@ -62,7 +78,8 @@ def pack( src, dst ):
                         # Se não for uma tag, é texto plano
                         if not tag:                     
                             while len(string) > 0:
-                                if ord(string[0]) >= 0x80:
+                                if ((ord(string[0]) >= 0x80 and ord(string[0]) <= 0x9f) or
+                                    (ord(string[0]) >= 0xe0 and ord(string[0]) <= 0xff)):
                                     temp += "\x02" + string[0] + string[1]
                                     string = string[2:]
                                 else:
@@ -70,9 +87,11 @@ def pack( src, dst ):
                                     string = string[1:]
                         else:
                             tag = tag.groups()[0]
-                            tag,argv = tag.split(" ")
-                            if tag == "color":
-                                temp += "\x03" + chr(int(argv))
+                            tag = tag.split(" ")
+                            if tag[0] == "color":
+                                temp += "\x03" + chr(int(tag[1]))
+                            elif tag[0] in LATIN:
+                                temp += LATIN[tag[0]]
                             else:
                                 print "Tag error ", tag
                                 raise Exception
@@ -111,7 +130,7 @@ def pack( src, dst ):
             out.seek( link_entries )
             for i, txt in enumerate(txtblocks):
                 out.write( struct.pack("<L", len(txt)) )
-                #out.write( struct.pack("<L", 0))
+                #out.write( struct.pack("<L", 0)) # nao sei o que é, entao vou preservar o valor original
                 out.seek(4,1)
                 out.write( struct.pack("<L", addr[i]) )                
             
