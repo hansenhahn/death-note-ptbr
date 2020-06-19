@@ -5,8 +5,8 @@ Created on 30/05/2020
 
 @author: DiegoHH
 '''
-from rhFormats import nsbmd
-from rhImages import bmp
+from rhFormats import nsbmd, nclr, ncgr, ncer
+from rhImages import bmp, images
 
 import struct
 import os
@@ -27,6 +27,114 @@ def scandirs(path):
         else:
             files.append(currentFile)
     return files
+    
+def unpack2d( src, dst ):
+    files = filter(lambda x: x.__contains__('.xap'), scandirs(src))
+    files = zip(*[iter(files)]*2)
+    try:
+        for _, fnames in enumerate(files):               
+            file_a = fnames[0]
+            file_g = fnames[1]
+            
+            path = file_g[len(src):]
+            fdirs = dst + path[:-len(os.path.basename(path))]
+            if not os.path.isdir(fdirs):
+                os.makedirs(fdirs)    
+            
+            
+            ifds = [open(name, "rb") for name in fnames]
+            data = {}
+                
+            for ifd in ifds:
+                stamp = ifd.read(4)
+                assert stamp == "XapA"
+                
+                entries = struct.unpack("<H", ifd.read(2))[0]
+                ifd.read(2)     # 0004
+                ifd.read(4)     # 0000 0000 padding?
+                link_dat = struct.unpack("<L", ifd.read(4))[0]
+                
+                for _ in range(entries):
+                    stamp = ifd.read(4)     
+                    size = struct.unpack("<L", ifd.read(4))[0]
+                    ifd.read(4)
+                    link = struct.unpack("<L", ifd.read(4))[0]
+                    data.update({stamp:(ifd,size,link)})
+            
+            # Colormap
+            if ("LCN0" in data) and ("GCN0" in data) and ("ECN0" in data):
+                print "GCN0 found > ", data["GCN0"][0].name 
+                print "LCN0 found > ", data["LCN0"][0].name
+                print "ECN0 found > ", data["ECN0"][0].name  
+                fd = data["LCN0"][0]
+                fd.seek(data["LCN0"][2])
+                color = nclr.NCLRFormat(fd)
+                
+                fd = data["GCN0"][0]
+                fd.seek(data["GCN0"][2]) 
+                tiles = ncgr.NCGRFormat(fd)
+                
+                fd = data["ECN0"][0]
+                fd.seek(data["ECN0"][2])
+                attrs = ncer.NCERFormat(fd)
+                
+                for i, banks in enumerate(attrs.cebk_sprite_attr):
+                    for j, attr in enumerate(banks):
+                            # Ver GBATek: 2D_BitmapVramAddress = (TileNo AND MaskX)*10h + (TileNo AND NOT MaskX)*80h
+                            tile = tiles.raw_data[attr[2].tile_number*0x80:]
+                            path = os.path.join(fdirs, os.path.basename(data["GCN0"][0].name) + '%d_%d.bmp')
+                            output = open(path % (i,j), 'wb')
+                            if ( attr[0].obj_shape == 0 ) and ( attr[1].obj_size == 0 ):
+                                a = images.Writer( (8,8), color.palette_data[attr[2].palette_number], 4, 1 )
+                                a.write(output, tile[:8*8/2], 4, "PNG")  
+                                
+                            elif ( attr[0].obj_shape == 0 ) and ( attr[1].obj_size == 1 ):
+                                a = images.Writer( (16,16), color.palette_data[attr[2].palette_number], 4, 1 )
+                                a.write(output, tile[:16*16/2], 4, "PNG")  
+                                
+                            elif ( attr[0].obj_shape == 0 ) and ( attr[1].obj_size == 2 ):
+                                a = images.Writer( (32,32), color.palette_data[attr[2].palette_number], 4, 1 )
+                                a.write(output, tile[:32*32/2], 4, "PNG")  
+                                
+                            elif ( attr[0].obj_shape == 0 ) and ( attr[1].obj_size == 3 ):
+                                a = images.Writer( (64,64), color.palette_data[attr[2].palette_number], 4, 1 )
+                                a.write(output, tile[:64*64/2], 4, "PNG")
+
+                            elif ( attr[0].obj_shape == 1 ) and ( attr[1].obj_size == 3 ):
+                                a = images.Writer( (64,32), color.palette_data[attr[2].palette_number], 4, 1 )
+                                a.write(output, tile[:64*32/2], 4, "PNG")
+                                
+                            elif ( attr[0].obj_shape == 2 ) and ( attr[1].obj_size == 0 ):
+                                a = images.Writer( (8,16), color.palette_data[attr[2].palette_number], 4, 1 )
+                                a.write(output, tile[:8*16/2], 4, "PNG")                            
+
+                            elif ( attr[0].obj_shape == 2 ) and ( attr[1].obj_size == 2 ):
+                                a = images.Writer( (16,32), color.palette_data[attr[2].palette_number], 4, 1 )
+                                a.write(output, tile[:16*32/2], 4, "PNG")  
+                             
+                            else:
+                                print attr[0].obj_shape , attr[1].obj_size
+                                #raw_input()
+                            
+                            output.close()
+    
+        # 
+        if "NAN0" in data:
+            print "NAN0 found > ", data["NAN0"][0].name   
+
+        if "CMN0" in data:
+            print "CMN0 found > ", data["CMN0"][0].name   
+
+        if "AMN0" in data:
+            print "AMN0 found > ", data["AMN0"][0].name 
+                
+        map(lambda x: x.close(), ifds)
+                    
+    except:
+        print "error!"            
+            
+
+    
     
 def pack3d( src, dst ):
     files = filter(lambda x: x.__contains__('.bmp'), scandirs(src))
@@ -99,7 +207,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument( '-s', dest = "src", type = str, nargs = "?", required = True )
-    #parser.add_argument( '-s1', dest = "src1", type = str, nargs = "?", required = False )
     parser.add_argument( '-d', dest = "dst", type = str, nargs = "?", required = True )
     parser.add_argument( '-m', dest = "mode", type = str, nargs = "?", required = True )
     
@@ -108,6 +215,8 @@ if __name__ == "__main__":
     if ( args.mode == "u3d" ):
         print "Unpacking images"           
         unpack3d( args.src , args.dst )
+    elif ( args.mode == "u2d" ):
+        unpack2d( args.src, args.dst )
     elif ( args.mode == "p3d" ):
         pack3d( args.src, args.dst )
 

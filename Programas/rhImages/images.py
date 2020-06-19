@@ -37,7 +37,7 @@ import struct
 import array
 
 import bmp
-#import png
+import png
 
 #import quantize
 
@@ -196,7 +196,6 @@ class Writer:
         # Adiciona os bytes extras para deixar o buffer do tamanho previsto
         padding = size - len(buffer)
         buffer.extend('\x00' * padding)
-
 
         # Converte o buffer para o formato [[ROW 1],[ROW 2],..[ROW N]] .. de acordo com o PyPNG
         row_buffer = []
