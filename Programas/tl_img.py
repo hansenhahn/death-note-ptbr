@@ -83,22 +83,22 @@ def unpack2d( src, dst ):
                 
                 for i, banks in enumerate(attrs.cebk_sprite_attr):
                     for j, attr in enumerate(banks):
-                            # Ver GBATek: 2D_BitmapVramAddress = (TileNo AND MaskX)*10h + (TileNo AND NOT MaskX)*80h
-                            pos = attr[2].tile_number*0x80
-                            path = os.path.join(fdirs, os.path.basename(data["GCN0"][0].name) + '_%03d_%03d.bmp')
-                            
-                            w = SHAPE_SIZE[attr[0].obj_shape][attr[1].obj_size][0]
-                            h = SHAPE_SIZE[attr[0].obj_shape][attr[1].obj_size][1]   
+                        # Ver GBATek: 2D_BitmapVramAddress = (TileNo AND MaskX)*10h + (TileNo AND NOT MaskX)*80h
+                        pos = attr[2].tile_number*0x80
+                        path = os.path.join(fdirs, os.path.basename(data["GCN0"][0].name) + '_%03d_%03d.bmp')
+                        
+                        w = SHAPE_SIZE[attr[0].obj_shape][attr[1].obj_size][0]
+                        h = SHAPE_SIZE[attr[0].obj_shape][attr[1].obj_size][1]   
 
-                            output = open(path % (i,j), 'wb')
-                            if ( tiles.chunks["CHAR"]["bitdepth"] == 3 ):
-                                a = images.Writer( (w,h), color.palette_data[attr[2].palette_number], 4, 1 )
-                                a.write(output, tiles.raw_data[pos:(pos+w*h/2)], 4, "BMP")
-                            else:
-                                a = images.Writer( (w,h), color.palette_data[attr[2].palette_number], 8, 1 )
-                                a.write(output, tiles.raw_data[pos:(pos+w*h)], 8, "BMP")
-                                                            
-                            output.close()
+                        output = open(path % (i,j), 'wb')
+                        if ( tiles.chunks["CHAR"]["bitdepth"] == 3 ):
+                            a = images.Writer( (w,h), color.palette_data[attr[2].palette_number], 4, 1 )
+                            a.write(output, tiles.raw_data[pos:(pos+w*h/2)], 4, "BMP")
+                        else:
+                            a = images.Writer( (w,h), color.palette_data[attr[2].palette_number], 8, 1 )
+                            a.write(output, tiles.raw_data[pos:(pos+w*h)], 8, "BMP")
+                                                        
+                        output.close()
         # 
         if "NAN0" in data:
             print "NAN0 found > ", data["NAN0"][0].name   
