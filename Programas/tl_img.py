@@ -27,7 +27,11 @@ def scandirs(path):
         else:
             files.append(currentFile)
     return files
-    
+
+SHAPE_SIZE = [[( 8, 8),(16,16),(32,32),(64,64)],  # 0
+              [(16, 8),(32, 8),(32,16),(64,32)],  # 1
+              [( 8,16),( 8,32),(16,32),(32,64)]]  # 2
+            
 def unpack2d( src, dst ):
     files = filter(lambda x: x.__contains__('.xap'), scandirs(src))
     files = zip(*[iter(files)]*2)
@@ -40,7 +44,6 @@ def unpack2d( src, dst ):
             fdirs = dst + path[:-len(os.path.basename(path))]
             if not os.path.isdir(fdirs):
                 os.makedirs(fdirs)    
-            
             
             ifds = [open(name, "rb") for name in fnames]
             data = {}
@@ -81,43 +84,21 @@ def unpack2d( src, dst ):
                 for i, banks in enumerate(attrs.cebk_sprite_attr):
                     for j, attr in enumerate(banks):
                             # Ver GBATek: 2D_BitmapVramAddress = (TileNo AND MaskX)*10h + (TileNo AND NOT MaskX)*80h
-                            tile = tiles.raw_data[attr[2].tile_number*0x80:]
-                            path = os.path.join(fdirs, os.path.basename(data["GCN0"][0].name) + '%d_%d.bmp')
-                            output = open(path % (i,j), 'wb')
-                            if ( attr[0].obj_shape == 0 ) and ( attr[1].obj_size == 0 ):
-                                a = images.Writer( (8,8), color.palette_data[attr[2].palette_number], 4, 1 )
-                                a.write(output, tile[:8*8/2], 4, "PNG")  
-                                
-                            elif ( attr[0].obj_shape == 0 ) and ( attr[1].obj_size == 1 ):
-                                a = images.Writer( (16,16), color.palette_data[attr[2].palette_number], 4, 1 )
-                                a.write(output, tile[:16*16/2], 4, "PNG")  
-                                
-                            elif ( attr[0].obj_shape == 0 ) and ( attr[1].obj_size == 2 ):
-                                a = images.Writer( (32,32), color.palette_data[attr[2].palette_number], 4, 1 )
-                                a.write(output, tile[:32*32/2], 4, "PNG")  
-                                
-                            elif ( attr[0].obj_shape == 0 ) and ( attr[1].obj_size == 3 ):
-                                a = images.Writer( (64,64), color.palette_data[attr[2].palette_number], 4, 1 )
-                                a.write(output, tile[:64*64/2], 4, "PNG")
-
-                            elif ( attr[0].obj_shape == 1 ) and ( attr[1].obj_size == 3 ):
-                                a = images.Writer( (64,32), color.palette_data[attr[2].palette_number], 4, 1 )
-                                a.write(output, tile[:64*32/2], 4, "PNG")
-                                
-                            elif ( attr[0].obj_shape == 2 ) and ( attr[1].obj_size == 0 ):
-                                a = images.Writer( (8,16), color.palette_data[attr[2].palette_number], 4, 1 )
-                                a.write(output, tile[:8*16/2], 4, "PNG")                            
-
-                            elif ( attr[0].obj_shape == 2 ) and ( attr[1].obj_size == 2 ):
-                                a = images.Writer( (16,32), color.palette_data[attr[2].palette_number], 4, 1 )
-                                a.write(output, tile[:16*32/2], 4, "PNG")  
-                             
-                            else:
-                                print attr[0].obj_shape , attr[1].obj_size
-                                #raw_input()
+                            pos = attr[2].tile_number*0x80
+                            path = os.path.join(fdirs, os.path.basename(data["GCN0"][0].name) + '_%03d_%03d.bmp')
                             
+                            w = SHAPE_SIZE[attr[0].obj_shape][attr[1].obj_size][0]
+                            h = SHAPE_SIZE[attr[0].obj_shape][attr[1].obj_size][1]   
+
+                            output = open(path % (i,j), 'wb')
+                            if ( tiles.chunks["CHAR"]["bitdepth"] == 3 ):
+                                a = images.Writer( (w,h), color.palette_data[attr[2].palette_number], 4, 1 )
+                                a.write(output, tiles.raw_data[pos:(pos+w*h/2)], 4, "BMP")
+                            else:
+                                a = images.Writer( (w,h), color.palette_data[attr[2].palette_number], 8, 1 )
+                                a.write(output, tiles.raw_data[pos:(pos+w*h)], 8, "BMP")
+                                                            
                             output.close()
-    
         # 
         if "NAN0" in data:
             print "NAN0 found > ", data["NAN0"][0].name   
@@ -132,9 +113,6 @@ def unpack2d( src, dst ):
                     
     except:
         print "error!"            
-            
-
-    
     
 def pack3d( src, dst ):
     files = filter(lambda x: x.__contains__('.bmp'), scandirs(src))
@@ -160,7 +138,7 @@ def unpack3d( src, dst ):
     with open( "do_not_delete_3d.log", "w" ) as log:
         for _, fname in enumerate(files):
             try:
-                print fname
+
                 path = fname[len(src):]
                 fdirs = dst + path[:-len(os.path.basename(path))]
                 if not os.path.isdir(fdirs):
@@ -169,6 +147,9 @@ def unpack3d( src, dst ):
                 with open(fname, "rb") as fd:
                     c = nsbmd.NsbmdFormat(fd)
                     tex = c.read_textures()
+                    
+                    print "NSBMD found > ", fd.name
+                    
                     with open( fdirs + os.path.basename(path) + '.bmp', 'wb') as o:
                         # Codecs indexados padrao
                         if tex[0].parsed_parameters[2] in (2,3,4):                              
