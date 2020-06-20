@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: windows-1252 -*-
+# -*- coding: utf-8 -*-
 '''
 Created on 30/05/2020
 
@@ -10,6 +10,7 @@ import os
 import sys
 import glob
 import re
+import codecs
 
 __title__ = "DEATHNOTE Text Extractor"
 __version__ = "1.0"
@@ -19,7 +20,7 @@ TAG_IN_LINE = r'(<.+?>)'
 GET_TAG = r'^<(.+?)>$'
 
 # caracteres acentuados
-LATIN = { "`A": "\xa6", "'A": "\xa7", "^A": "\xa8", "~A": "\xa9",
+TAG_TO_SHIFTJIS = { "`A": "\xa6", "'A": "\xa7", "^A": "\xa8", "~A": "\xa9",
           "\"A": "\xaa", "'C": "\xab", "`E": "\xac", "'E": "\xad",
           "^E": "\xae", "~E": "\xaf", "\"E": "\xb0", "`I": "\xb1",
           "'I": "\xb2", "^I": "\xb3", "\"I": "\xb4", "`O": "\xb5",
@@ -33,6 +34,22 @@ LATIN = { "`A": "\xa6", "'A": "\xa7", "^A": "\xa8", "~A": "\xa9",
           "'o": "\xd0", "^o": "\xd1", "~o": "\xd2", "\"o": "\xd3",
           "`u": "\xd4", "'u": "\xd5", "~u": "\xd6", "\"u": "\xd7",
           "~n": "\xd8", "\"y": "\xd9" }
+          
+UTF8_TO_TAG = [ (u"À", u"`A"),  (u"Á", u"'A"),  (u"Â", u"^A"),  (u"Ã", u"~A"),
+          (u"Ä", u"\"A"), (u"Ç", u"'C"),  (u"È", u"`E"),  (u"É", u"'E"),
+          (u"Ê", u"^E"),  (u"Ë", u"\"E"), (u"Ì", u"`I"),
+          (u"Í", u"'I"),  (u"Î", u"^I"),  (u"Ï", u"\"I"), (u"Ò", u"`O"),
+          (u"Ó", u"'O"),  (u"Ô", u"^O"),  (u"Õ", u"~O"),  (u"Ö", u"\"O"),
+          (u"Ù", u"`U"),  (u"Ú", u"'U"),  (u"Ü", u"\"U"),
+          (u"Ñ", u"~N"),
+          (u"à", u"`a"),  (u"á", u"'a"),  (u"â", u"^a"),  (u"ã", u"~a"),
+          (u"ä", u"\"a"), (u"ç", u"'c"),  (u"è", u"`e"),  (u"é", u"'e"),
+          (u"ê", u"^e"),  (u"ë", u"\"e"), (u"ì", u"`i"),
+          (u"í", u"'i"),  (u"î", u"^i"),  (u"ï", u"\"i"), (u"ò", u"`o"),
+          (u"ó", u"'o"),  (u"ô", u"^o"),  (u"õ", u"~o"),  (u"ö", u"\"o"),
+          (u"ù", u"`u"),  (u"ú", u"'u"),  (u"ü", u"\"u"),
+          (u"ñ", u"~n"), ]          
+
 
 def scandirs(path):
     files = []
@@ -52,8 +69,12 @@ def pack( src, dst ):
         with open( fname , "r" ) as ifd:
             txtblocks = []
             total = 0 
-            for line in ifd:
+            for line in ifd:  
                 line = line.strip( '\r\n' )
+                line = codecs.decode(line, "utf-8")
+                for c in UTF8_TO_TAG: line = line.replace(c[0], '<'+c[1]+'>')
+                line = codecs.encode(line, "cp932")
+                
                 if line.startswith( '[' ) and line.endswith( ']' ):
                     args = line[1:-1].split(" ")
                     blk = int(args[0].split(":")[1])
@@ -90,8 +111,8 @@ def pack( src, dst ):
                             tag = tag.split(" ")
                             if tag[0] == "color":
                                 temp += "\x03" + chr(int(tag[1]))
-                            elif tag[0] in LATIN:
-                                temp += LATIN[tag[0]]
+                            elif tag[0] in TAG_TO_SHIFTJIS:
+                                temp += TAG_TO_SHIFTJIS[tag[0]]
                             else:
                                 print "Tag error ", tag
                                 raise Exception
@@ -190,6 +211,14 @@ def unpack( src, dst ):
                             out.write("!****************************!\n")
                         
                 out.close()
+                
+                out = open(fdirs + os.path.basename(path) + '.txt' , "r")
+                data = codecs.decode(out.read(), "cp932")
+                out.close()
+                
+                out = open(fdirs + os.path.basename(path) + '.txt' , "w")
+                out.write( codecs.encode(data, "utf-8") )
+                out.close()                
             except:
                 print "error!"
 
