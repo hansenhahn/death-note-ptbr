@@ -137,7 +137,7 @@ def unpack3d( src, dst ):
     
     with open( "do_not_delete_3d.log", "w" ) as log:
         for _, fname in enumerate(files):
-            try:
+            #try:
 
                 path = fname[len(src):]
                 fdirs = dst + path[:-len(os.path.basename(path))]
@@ -154,14 +154,14 @@ def unpack3d( src, dst ):
                         # Codecs indexados padrao
                         if tex[0].parsed_parameters[2] in (2,3,4):                              
                             if tex[0].parsed_parameters[2] == 2:
-                                    p = bmp.Writer(len(tex[0].texture_raw[0]), len(tex[0].texture_raw), 2, palette = tex[0].palette)
-                                    p.write(o, tex[0].texture_raw) 
+                                    p = images.Writer( (tex[0].parsed_parameters[0],tex[0].parsed_parameters[1]), tex[0].palette, 2, 2 )
+                                    p.write(o, tex[0].texture_raw, 2, "BMP")                                    
                             elif tex[0].parsed_parameters[2] == 3:
-                                    p = bmp.Writer(len(tex[0].texture_raw[0]), len(tex[0].texture_raw), 4, palette = tex[0].palette)
-                                    p.write(o, tex[0].texture_raw)   
+                                    p = images.Writer( (tex[0].parsed_parameters[0],tex[0].parsed_parameters[1]), tex[0].palette, 4, 2 )
+                                    p.write(o, tex[0].texture_raw, 4, "BMP")                                        
                             elif tex[0].parsed_parameters[2] == 4:
-                                    p = bmp.Writer(len(tex[0].texture_raw[0]), len(tex[0].texture_raw), 8, palette = tex[0].palette)
-                                    p.write(o, tex[0].texture_raw)                                           
+                                    p = images.Writer( (tex[0].parsed_parameters[0],tex[0].parsed_parameters[1]), tex[0].palette, 8, 2 )
+                                    p.write(o, tex[0].texture_raw, 8, "BMP")                                        
                         else:
                             buffer = []
                             for y, line in enumerate(tex[0].texture_rgba):
@@ -174,8 +174,8 @@ def unpack3d( src, dst ):
                             p.write(o, buffer)
                         log.write("%s > %s\n" % ( fdirs + os.path.basename(path) + '.bmp' , color_codecs[tex[0].parsed_parameters[2]] ))    
                         
-            except:
-                print "error!"
+            # except:
+                # print "error!"
             
 if __name__ == "__main__":
 

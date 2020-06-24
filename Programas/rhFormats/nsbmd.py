@@ -174,33 +174,36 @@ class Texture(object):
             palette = [gba2rgb(data) for _ in range(2**bitdepth)]
 
             buffer = [[] for x in range(self.parsed_parameters[1])]
-            raw_buffer = [[] for x in range(self.parsed_parameters[1])]
+            #raw_buffer = [[] for x in range(self.parsed_parameters[1])]
+            raw_buffer = ""
 
             data.seek(self.data_offset, 0)
             # Monta o bitmap indexado
             for x in range(self.parsed_parameters[1]):
                 for y in range(self.parsed_parameters[0]/(8/bitdepth)):
-                    pixel = struct.unpack('B', data.read(1))[0]
-                    if bitdepth < 8:
-                        buffer[x] += [mask & (pixel >> i) for i in shift]
-                        raw_buffer[x] += [mask & (pixel >> i) for i in shift]
-                    else:
-                        buffer[x].append(pixel)
-                        raw_buffer[x].append(pixel)
+                    pixel = data.read(1)
+                    raw_buffer += pixel                    
+                    # pixel = struct.unpack('B', pixel)[0]
+                    # if bitdepth < 8:
+                        # buffer[x] += [mask & (pixel >> i) for i in shift]
+                        # #raw_buffer[x] += [mask & (pixel >> i) for i in shift]
+                    # else:
+                        # buffer[x].append(pixel)
+                        # #raw_buffer[x].append(pixel)
 
             # Converte para RGB
-            for x in range(self.parsed_parameters[1]):
-                for y in range(self.parsed_parameters[0]):
-                    data.seek(self.palette_offset + (buffer[x][y] << 1), 0)
-                    pixel = gba2rgb(data)
-                    if self.parsed_parameters[3] and buffer[x][y] == 0:
-                        buffer[x][y] = pixel + [0x00]
-                    else:
-                        buffer[x][y] = pixel + [0xFF]
+            # for x in range(self.parsed_parameters[1]):
+                # for y in range(self.parsed_parameters[0]):
+                    # data.seek(self.palette_offset + (buffer[x][y] << 1), 0)
+                    # pixel = gba2rgb(data)
+                    # if self.parsed_parameters[3] and buffer[x][y] == 0:
+                        # buffer[x][y] = pixel + [0x00]
+                    # else:
+                        # buffer[x][y] = pixel + [0xFF]
 
             setattr(self, "palette", palette)
             setattr(self, "texture_raw", raw_buffer)
-            setattr(self, "texture_rgba", buffer)
+            #setattr(self, "texture_rgba", buffer)
             return buffer
             
         elif ( self.parsed_parameters[2] == 1 ):
